@@ -107,17 +107,60 @@ final class ClipboardStore: ObservableObject {
         guard pb.changeCount != lastChangeCount else { return }
         lastChangeCount = pb.changeCount
 
-        guard let str = pb.string(forType: .string) else { return }
-        if manager.add(str) {
+        // Checked before .string: a Finder file copy often also carries a
+        // plain-text representation (e.g. the file's name), which would
+        // otherwise shadow the more useful file entry.
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
+           !urls.isEmpty {
+            if manager.add(filePaths: urls.map(\.path)) {
+                history = manager.items
+                saveHistory()
+            }
+            return
+        }
+
+        if let str = pb.string(forType: .string) {
+            if manager.add(str) {
+                history = manager.items
+                saveHistory()
+            }
+            return
+        }
+
+        if let imageData = Self.pngImageData(from: pb), manager.add(imageData: imageData) {
             history = manager.items
             saveHistory()
         }
     }
 
+    /// Reads image bytes off the pasteboard as PNG, converting from TIFF
+    /// when that's the only representation offered (the common case for
+    /// screenshots and images copied from Preview/Finder).
+    private static func pngImageData(from pasteboard: NSPasteboard) -> Data? {
+        if let png = pasteboard.data(forType: .png) {
+            return png
+        }
+        guard let tiff = pasteboard.data(forType: .tiff),
+              let rep = NSBitmapImageRep(data: tiff) else { return nil }
+        return rep.representation(using: .png, properties: [:])
+    }
+
     func copyToClipboard(_ item: ClipboardItem) {
         let pb = NSPasteboard.general
         pb.clearContents()
-        pb.setString(item.text, forType: .string)
+        switch item.kind {
+        case .text:
+            pb.setString(item.text, forType: .string)
+        case .image:
+            if let data = item.imageData {
+                pb.setData(data, forType: .png)
+            }
+        case .file:
+            if let paths = item.filePaths {
+                let objects: [NSPasteboardWriting] = paths.map { NSURL(fileURLWithPath: $0) }
+                pb.writeObjects(objects)
+            }
+        }
         lastChangeCount = pb.changeCount
         NSApp.keyWindow?.close()
     }

@@ -65,4 +65,87 @@ struct ClipboardItemTests {
         let decoded = try JSONDecoder().decode(ClipboardItem.self, from: data)
         #expect(item == decoded)
     }
+
+    // MARK: - Image items
+
+    @Test func imageItemHasImageKindAndEmptyText() {
+        let item = ClipboardItem(imageData: Data([0x01, 0x02, 0x03]))
+        #expect(item.kind == .image)
+        #expect(item.text == "")
+    }
+
+    @Test func imagePreviewShowsByteSize() {
+        let item = ClipboardItem(imageData: Data(repeating: 0, count: 1024))
+        #expect(item.preview == "Image (1 KB)")
+    }
+
+    @Test func imageHoverInfoIncludesRelativeTimeAndSize() {
+        let reference = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipboardItem(imageData: Data(repeating: 0, count: 1024), date: reference.addingTimeInterval(-65))
+        let info = item.hoverInfo(relativeTo: reference)
+        #expect(info == "Copied 1 minute ago • image, 1 KB")
+    }
+
+    @Test func imageCodableRoundTrip() throws {
+        let item = ClipboardItem(imageData: Data([0xFF, 0xD8, 0xFF]))
+        let data = try JSONEncoder().encode(item)
+        let decoded = try JSONDecoder().decode(ClipboardItem.self, from: data)
+        #expect(item == decoded)
+        #expect(decoded.kind == .image)
+    }
+
+    @Test func decodingLegacyTextOnlyJSONDefaultsToTextKind() throws {
+        let id = UUID()
+        let date = Date(timeIntervalSince1970: 1_000_000)
+        let legacyJSON = """
+        {"id":"\(id.uuidString)","text":"legacy item","date":\(date.timeIntervalSinceReferenceDate)}
+        """
+        let decoded = try JSONDecoder().decode(ClipboardItem.self, from: Data(legacyJSON.utf8))
+        #expect(decoded.kind == .text)
+        #expect(decoded.text == "legacy item")
+        #expect(decoded.imageData == nil)
+    }
+
+    // MARK: - File items
+
+    @Test func fileItemHasFileKindAndEmptyText() {
+        let item = ClipboardItem(filePaths: ["/tmp/report.pdf"])
+        #expect(item.kind == .file)
+        #expect(item.text == "")
+    }
+
+    @Test func filePreviewShowsSingleFileName() {
+        let item = ClipboardItem(filePaths: ["/Users/me/Documents/report.pdf"])
+        #expect(item.preview == "report.pdf")
+    }
+
+    @Test func filePreviewSummarizesMultipleFiles() {
+        let item = ClipboardItem(filePaths: ["/tmp/a.txt", "/tmp/b.txt"])
+        #expect(item.preview == "2 files: a.txt, b.txt")
+    }
+
+    @Test func fileHoverInfoUsesSingularForOneFile() {
+        let reference = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipboardItem(filePaths: ["/tmp/a.txt"], date: reference)
+        #expect(item.hoverInfo(relativeTo: reference).hasSuffix("1 file"))
+    }
+
+    @Test func fileHoverInfoUsesPluralForMultipleFiles() {
+        let reference = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipboardItem(filePaths: ["/tmp/a.txt", "/tmp/b.txt"], date: reference)
+        #expect(item.hoverInfo(relativeTo: reference).hasSuffix("2 files"))
+    }
+
+    @Test func fileSearchableTextMatchesFileName() {
+        let item = ClipboardItem(filePaths: ["/Users/me/Documents/quarterly-report.pdf"])
+        #expect(item.searchableText.localizedCaseInsensitiveContains("quarterly"))
+    }
+
+    @Test func fileCodableRoundTrip() throws {
+        let item = ClipboardItem(filePaths: ["/tmp/a.txt", "/tmp/b.txt"])
+        let data = try JSONEncoder().encode(item)
+        let decoded = try JSONDecoder().decode(ClipboardItem.self, from: data)
+        #expect(item == decoded)
+        #expect(decoded.kind == .file)
+    }
 }

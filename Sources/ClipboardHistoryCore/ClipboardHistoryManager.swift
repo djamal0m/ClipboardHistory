@@ -33,6 +33,36 @@ public struct ClipboardHistoryManager {
         return true
     }
 
+    /// Adds `imageData` (PNG bytes) as a new entry unless it's empty, a
+    /// repeat of the most recent entry, or larger than `maxItemLength`
+    /// bytes. Returns whether an item was actually added.
+    @discardableResult
+    public mutating func add(imageData: Data) -> Bool {
+        guard !imageData.isEmpty else { return false }
+        guard imageData.count <= maxItemLength else { return false }
+        guard items.first?.imageData != imageData else { return false }
+
+        items.insert(ClipboardItem(imageData: imageData), at: 0)
+        if items.count > maxItems {
+            items.removeLast()
+        }
+        return true
+    }
+
+    /// Adds `filePaths` as a new entry unless it's empty or a repeat of the
+    /// most recent entry. Returns whether an item was actually added.
+    @discardableResult
+    public mutating func add(filePaths: [String]) -> Bool {
+        guard !filePaths.isEmpty else { return false }
+        guard items.first?.filePaths != filePaths else { return false }
+
+        items.insert(ClipboardItem(filePaths: filePaths), at: 0)
+        if items.count > maxItems {
+            items.removeLast()
+        }
+        return true
+    }
+
     public mutating func delete(id: UUID) {
         items.removeAll { $0.id == id }
     }
@@ -45,10 +75,19 @@ public struct ClipboardHistoryManager {
         }
     }
 
-    /// Drops any stored item longer than `maxItemLength`. Call after
-    /// lowering `maxItemLength` so an existing history respects the new cap.
+    /// Drops any stored item longer than `maxItemLength` — characters for
+    /// text, bytes for images. File entries only hold paths, never bloat
+    /// the persisted history, so they're not subject to this cap. Call
+    /// after lowering `maxItemLength` so an existing history respects the
+    /// new cap.
     public mutating func enforceMaxItemLength() {
-        items.removeAll { $0.text.count > maxItemLength }
+        items.removeAll { item in
+            switch item.kind {
+            case .text: return item.text.count > maxItemLength
+            case .image: return (item.imageData?.count ?? 0) > maxItemLength
+            case .file: return false
+            }
+        }
     }
 
     public mutating func clear() {
@@ -57,6 +96,6 @@ public struct ClipboardHistoryManager {
 
     public func filtered(query: String) -> [ClipboardItem] {
         guard !query.isEmpty else { return items }
-        return items.filter { $0.text.localizedCaseInsensitiveContains(query) }
+        return items.filter { $0.searchableText.localizedCaseInsensitiveContains(query) }
     }
 }

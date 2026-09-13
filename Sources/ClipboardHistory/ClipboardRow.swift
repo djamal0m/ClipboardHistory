@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import ClipboardHistoryCore
 
 // Avoids @State, which needs the SwiftUI macro plugin bundled only with full
@@ -15,6 +16,7 @@ struct ClipboardRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            rowIcon
             Text(item.preview)
                 .font(.system(size: 12.5))
                 .lineLimit(1)
@@ -36,8 +38,37 @@ struct ClipboardRow: View {
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
-        .onHover { hover.isHovering = $0 }
+        .onHover { isHovering in
+            hover.isHovering = isHovering
+            if isHovering, item.kind == .text, item.preview.hasSuffix("…") {
+                TextPreviewPanel.shared.show(text: item.text)
+            } else {
+                TextPreviewPanel.shared.hide()
+            }
+        }
         .animation(.easeOut(duration: 0.12), value: hover.isHovering)
         .help(item.hoverInfo())
+    }
+
+    @ViewBuilder
+    private var rowIcon: some View {
+        switch item.kind {
+        case .image:
+            if let data = item.imageData, let nsImage = NSImage(data: data) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 22, height: 22)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+        case .file:
+            if let firstPath = item.filePaths?.first {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: firstPath))
+                    .resizable()
+                    .frame(width: 18, height: 18)
+            }
+        case .text:
+            EmptyView()
+        }
     }
 }
