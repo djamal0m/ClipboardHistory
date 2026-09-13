@@ -38,5 +38,6 @@ struct ClipboardRow: View {
         .onTapGesture(perform: onSelect)
         .onHover { hover.isHovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hover.isHovering)
+        .help(item.hoverInfo())
     }
 }

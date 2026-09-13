@@ -38,6 +38,27 @@ struct ClipboardItemTests {
         #expect(a != c)
     }
 
+    @Test func hoverInfoIncludesRelativeTimeAndCharacterCount() {
+        let reference = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipboardItem(text: "hello", date: reference.addingTimeInterval(-65))
+        let info = item.hoverInfo(relativeTo: reference)
+        #expect(info == "Copied 1 minute ago • 5 characters")
+    }
+
+    @Test func hoverInfoUsesSingularCharacterForLengthOne() {
+        let reference = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipboardItem(text: "x", date: reference)
+        let info = item.hoverInfo(relativeTo: reference)
+        #expect(info.hasSuffix("1 character"))
+    }
+
+    @Test func hoverInfoUsesPluralCharactersForLongerText() {
+        let reference = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipboardItem(text: "xy", date: reference)
+        let info = item.hoverInfo(relativeTo: reference)
+        #expect(info.hasSuffix("2 characters"))
+    }
+
     @Test func codableRoundTrip() throws {
         let item = ClipboardItem(text: "round trip me")
         let data = try JSONEncoder().encode(item)

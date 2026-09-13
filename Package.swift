@@ -19,5 +19,12 @@ let package = Package(
                 .unsafeFlags(["-plugin-path", "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing"])
             ]
         ),
+        .testTarget(
+            name: "ClipboardHistoryTests",
+            dependencies: ["ClipboardHistory"],
+            swiftSettings: [
+                .unsafeFlags(["-plugin-path", "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing"])
+            ]
+        ),
     ]
 )

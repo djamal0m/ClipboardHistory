@@ -37,6 +37,20 @@ public struct ClipboardHistoryManager {
         items.removeAll { $0.id == id }
     }
 
+    /// Drops the oldest items if `items.count` exceeds `maxItems`. Call after
+    /// lowering `maxItems` so an existing history respects the new cap.
+    public mutating func enforceCapacity() {
+        if items.count > maxItems {
+            items.removeLast(items.count - maxItems)
+        }
+    }
+
+    /// Drops any stored item longer than `maxItemLength`. Call after
+    /// lowering `maxItemLength` so an existing history respects the new cap.
+    public mutating func enforceMaxItemLength() {
+        items.removeAll { $0.text.count > maxItemLength }
+    }
+
     public mutating func clear() {
         items.removeAll()
     }

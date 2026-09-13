@@ -6,6 +6,19 @@ struct ClipboardMenuView: View {
     @ObservedObject var store: ClipboardStore
 
     var body: some View {
+        Group {
+            if store.isShowingSettings {
+                SettingsPanelView(store: store)
+            } else {
+                mainContent
+            }
+        }
+        .frame(width: 340, height: 460)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+
+    private var mainContent: some View {
         VStack(spacing: 0) {
             // Header
             HStack(spacing: 6) {
@@ -85,26 +98,26 @@ struct ClipboardMenuView: View {
 
             // Footer
             HStack(spacing: 8) {
-                Toggle("Launch at Login", isOn: $store.launchAtLogin)
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
-                    .font(.system(size: 11))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .glassEffect(.regular, in: Capsule())
-                Spacer()
+                Button {
+                    store.isShowingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+                .controlSize(.regular)
+
                 Button("Clear") { store.clear() }
                     .buttonStyle(.glass)
                     .controlSize(.regular)
+                    .frame(maxWidth: .infinity)
                 Button("Quit") { NSApp.terminate(nil) }
                     .buttonStyle(.glass)
                     .controlSize(.regular)
+                    .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
         }
-        .frame(width: 340, height: 460)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 }

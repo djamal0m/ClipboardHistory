@@ -71,6 +71,34 @@ struct ClipboardHistoryManagerTests {
         #expect(manager.items.count == 1)
     }
 
+    // MARK: - enforceCapacity() / enforceMaxItemLength()
+
+    @Test func enforceCapacityDropsOldestOverCap() {
+        var manager = ClipboardHistoryManager(maxItems: 100)
+        manager.add("1")
+        manager.add("2")
+        manager.add("3")
+        manager.maxItems = 2
+        manager.enforceCapacity()
+        #expect(manager.items.map(\.text) == ["3", "2"])
+    }
+
+    @Test func enforceCapacityIsNoOpWhenUnderCap() {
+        var manager = ClipboardHistoryManager(maxItems: 100)
+        manager.add("1")
+        manager.enforceCapacity()
+        #expect(manager.items.map(\.text) == ["1"])
+    }
+
+    @Test func enforceMaxItemLengthDropsOversizedItems() {
+        var manager = ClipboardHistoryManager()
+        manager.add("short")
+        manager.add(String(repeating: "x", count: 50))
+        manager.maxItemLength = 10
+        manager.enforceMaxItemLength()
+        #expect(manager.items.map(\.text) == ["short"])
+    }
+
     // MARK: - delete()
 
     @Test func deleteRemovesMatchingItem() {

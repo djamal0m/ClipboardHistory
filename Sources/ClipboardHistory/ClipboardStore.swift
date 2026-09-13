@@ -7,9 +7,56 @@ import ClipboardHistoryCore
 final class ClipboardStore: ObservableObject {
     @Published var history: [ClipboardItem] = []
     @Published var query: String = ""
+    @Published var isShowingSettings: Bool = false
     @Published var launchAtLogin: Bool {
         didSet { setLaunchAtLogin(launchAtLogin) }
     }
+
+    /// How many items to keep. Clamped to `Self.maxItemsRange`.
+    @Published var maxItems: Int {
+        didSet {
+            let clamped = Self.maxItemsRange.clamp(maxItems)
+            guard clamped == maxItems else {
+                maxItems = clamped // re-triggers didSet once, already clamped
+                return
+            }
+            UserDefaults.standard.set(maxItems, forKey: Self.maxItemsKey)
+            manager.maxItems = maxItems
+            manager.enforceCapacity()
+            history = manager.items
+            saveHistory()
+        }
+    }
+
+    /// Longest clipboard text (in characters) to keep. Clamped to `Self.maxItemLengthRange`.
+    @Published var maxItemLength: Int {
+        didSet {
+            let clamped = Self.maxItemLengthRange.clamp(maxItemLength)
+            guard clamped == maxItemLength else {
+                maxItemLength = clamped // re-triggers didSet once, already clamped
+                return
+            }
+            UserDefaults.standard.set(maxItemLength, forKey: Self.maxItemLengthKey)
+            manager.maxItemLength = maxItemLength
+            manager.enforceMaxItemLength()
+            history = manager.items
+            saveHistory()
+        }
+    }
+
+    @Published var appearance: AppAppearance {
+        didSet {
+            UserDefaults.standard.set(appearance.rawValue, forKey: Self.appearanceKey)
+            applyAppearance()
+        }
+    }
+
+    static let maxItemsRange = 10...5000
+    static let maxItemLengthRange = 100...5_000_000
+
+    private static let maxItemsKey = "maxItems"
+    private static let maxItemLengthKey = "maxItemLength"
+    private static let appearanceKey = "appearance"
 
     private var manager: ClipboardHistoryManager
     private var lastChangeCount = NSPasteboard.general.changeCount
@@ -23,7 +70,20 @@ final class ClipboardStore: ObservableObject {
     }()
 
     init() {
-        manager = ClipboardHistoryManager(maxItems: 1000)
+        let defaults = UserDefaults.standard
+        let initialMaxItems = Self.maxItemsRange.clamp(
+            defaults.object(forKey: Self.maxItemsKey) as? Int ?? 1000
+        )
+        let initialMaxItemLength = Self.maxItemLengthRange.clamp(
+            defaults.object(forKey: Self.maxItemLengthKey) as? Int ?? 200_000
+        )
+        let initialAppearance = AppAppearance(rawValue: defaults.string(forKey: Self.appearanceKey) ?? "") ?? .system
+
+        manager = ClipboardHistoryManager(maxItems: initialMaxItems, maxItemLength: initialMaxItemLength)
+        maxItems = initialMaxItems
+        maxItemLength = initialMaxItemLength
+        appearance = initialAppearance
+
         Self.migrateLegacyLoginItemIfNeeded()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         loadHistory()
@@ -32,6 +92,10 @@ final class ClipboardStore: ObservableObject {
                 self?.checkClipboard()
             }
         }
+
+        // didSet doesn't fire for a property's first assignment inside init,
+        // so apply the restored appearance explicitly (see applyAppearance).
+        applyAppearance()
     }
 
     var filteredHistory: [ClipboardItem] {
@@ -77,8 +141,23 @@ final class ClipboardStore: ObservableObject {
     private func loadHistory() {
         guard let data = try? Data(contentsOf: historyURL),
               let saved = try? JSONDecoder().decode([ClipboardItem].self, from: data) else { return }
-        manager = ClipboardHistoryManager(items: saved, maxItems: manager.maxItems)
+        manager = ClipboardHistoryManager(items: saved, maxItems: manager.maxItems, maxItemLength: manager.maxItemLength)
         history = saved
+    }
+
+    /// SwiftUI's `.preferredColorScheme` does not reliably propagate into a
+    /// `MenuBarExtra`'s `.window`-style content or its detached Settings
+    /// content — a known SwiftUI-on-macOS gap. Setting the app-wide AppKit
+    /// appearance directly is what actually affects every window/panel.
+    private func applyAppearance() {
+        switch appearance {
+        case .system:
+            NSApp.appearance = nil
+        case .light:
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
@@ -105,5 +184,11 @@ final class ClipboardStore: ObservableObject {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try? FileManager.default.removeItem(at: url)
         try? SMAppService.mainApp.register()
+    }
+}
+
+private extension ClosedRange where Bound == Int {
+    func clamp(_ value: Int) -> Int {
+        Swift.min(Swift.max(value, lowerBound), upperBound)
     }
 }
