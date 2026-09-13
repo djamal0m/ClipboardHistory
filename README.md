@@ -32,7 +32,7 @@ A lightweight macOS menu bar app that keeps a searchable history of everything y
 Clone the repo and run the build script, which compiles a release build, installs it to `~/Applications/Clipboard History.app`, code-signs it, and launches it:
 
 ```bash
-git clone https://github.com/djamal0m/ClipboardHistory.git
+git clone https://github.com/dm0m/ClipboardHistory.git
 cd ClipboardHistory
 ./build.sh
 ```
