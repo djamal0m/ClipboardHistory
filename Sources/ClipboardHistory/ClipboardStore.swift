@@ -119,6 +119,7 @@ final class ClipboardStore: ObservableObject {
         pb.clearContents()
         pb.setString(item.text, forType: .string)
         lastChangeCount = pb.changeCount
+        NSApp.keyWindow?.close()
     }
 
     func delete(_ item: ClipboardItem) {
