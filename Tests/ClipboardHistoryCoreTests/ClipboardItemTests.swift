@@ -148,4 +148,28 @@ struct ClipboardItemTests {
         #expect(item == decoded)
         #expect(decoded.kind == .file)
     }
+
+    @Test func filePreviewTruncatesLongFileListWithEllipsis() {
+        let longName1 = String(repeating: "a", count: 30) + ".txt"
+        let longName2 = String(repeating: "b", count: 30) + ".txt"
+        let item = ClipboardItem(filePaths: ["/tmp/\(longName1)", "/tmp/\(longName2)"])
+        let expectedRaw = "2 files: \(longName1), \(longName2)"
+        #expect(item.preview.count == 71) // 70 chars + ellipsis
+        #expect(item.preview.hasSuffix("…"))
+        #expect(item.preview.dropLast() == expectedRaw.prefix(70))
+    }
+
+    @Test func fileKindWithMissingFilePathsFallsBackGracefully() throws {
+        let id = UUID()
+        let date = Date(timeIntervalSince1970: 1_000_000)
+        let json = """
+        {"id":"\(id.uuidString)","kind":"file","date":\(date.timeIntervalSinceReferenceDate)}
+        """
+        let decoded = try JSONDecoder().decode(ClipboardItem.self, from: Data(json.utf8))
+        #expect(decoded.kind == .file)
+        #expect(decoded.filePaths == nil)
+        #expect(decoded.preview == "File")
+        #expect(decoded.searchableText == "")
+        #expect(decoded.hoverInfo(relativeTo: date).hasSuffix("0 files"))
+    }
 }

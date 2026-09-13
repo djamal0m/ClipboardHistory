@@ -8,24 +8,23 @@ import AppKit
 /// entirely.
 ///
 /// Styled to match the main popover (`ClipboardMenuView`): same corner
-/// radius (26pt) and a subtle light edge stroke standing in for the
-/// Liquid Glass border, since this window stays a plain opaque panel
-/// rather than using `.glassEffect()` itself.
+/// radius (26pt) and a subtle edge stroke standing in for the Liquid Glass
+/// border. Colors are resolved from the host window's *current* appearance
+/// each time the panel is shown (rather than fixed literals), so it tracks
+/// the app's Light/Dark/System setting instead of always looking dark.
 @MainActor
 final class TextPreviewPanel {
     static let shared = TextPreviewPanel()
 
     private static let cornerRadius: CGFloat = 26
-    private static let backgroundColor = NSColor(white: 0.11, alpha: 1)
-    private static let borderColor = NSColor.white.withAlphaComponent(0.18)
 
     private let panel: NSPanel
     private let textField: NSTextField
+    private let content: NSView
 
     private init() {
         textField = NSTextField(wrappingLabelWithString: "")
         textField.font = .systemFont(ofSize: 12.5)
-        textField.textColor = .white
         textField.backgroundColor = .clear
         textField.isBezeled = false
         textField.isEditable = false
@@ -43,18 +42,27 @@ final class TextPreviewPanel {
         panel.level = .floating
         panel.hidesOnDeactivate = false
 
-        let content = NSView()
+        content = NSView()
         content.wantsLayer = true
-        content.layer?.backgroundColor = Self.backgroundColor.cgColor
         content.layer?.cornerRadius = Self.cornerRadius
         content.layer?.borderWidth = 1
-        content.layer?.borderColor = Self.borderColor.cgColor
         content.addSubview(textField)
         panel.contentView = content
     }
 
     func show(text: String) {
         guard let hostWindow = NSApp.keyWindow else { return }
+
+        // Match the host window's actual current appearance (it may be
+        // pinned to Light/Dark or following System) so dynamic system
+        // colors below resolve to the same values the popover itself uses.
+        let appearance = hostWindow.effectiveAppearance
+        panel.appearance = appearance
+        appearance.performAsCurrentDrawingAppearance {
+            content.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            content.layer?.borderColor = NSColor.separatorColor.cgColor
+            textField.textColor = .labelColor
+        }
 
         let maxWidth: CGFloat = 260
         let padding: CGFloat = 12

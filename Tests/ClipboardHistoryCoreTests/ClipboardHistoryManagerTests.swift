@@ -203,6 +203,15 @@ struct ClipboardHistoryManagerTests {
         #expect(manager.items.first?.imageData?.count == 5)
     }
 
+    @Test func enforceMaxItemLengthNeverDropsFileItems() {
+        var manager = ClipboardHistoryManager()
+        manager.add(filePaths: ["/tmp/a-very-long-file-name-indeed.txt"])
+        manager.maxItemLength = 1
+        manager.enforceMaxItemLength()
+        #expect(manager.items.count == 1)
+        #expect(manager.items.first?.kind == .file)
+    }
+
     // MARK: - delete()
 
     @Test func deleteRemovesMatchingItem() {
